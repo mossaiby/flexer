@@ -7,7 +7,7 @@ int main()
   std::vector<const char *> punctuations { "(", ")", "{", "}", ",", ";" };
 
   const char *content = "int test() { return 42; }";
-  flexer::lexer lexer(content, __FILE__);
+  flexer::lexer lexer(content);
 
   lexer.set_punctuations(punctuations);
 

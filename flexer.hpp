@@ -8,10 +8,20 @@
 namespace flexer
 {
 
-constexpr const char *default_filename = ""; // Any better idea?
+constexpr const char *default_filename = "<input stream>"; // Any better idea?
 
 struct location_t
 {
+  location_t() : filename(nullptr), row(0), col(0)
+  {
+    //
+  }
+
+  location_t(const char *filename, std::size_t row, std::size_t col) : filename(filename), row(row), col(col)
+  {
+    //
+  }
+
   const char *filename;
   std::size_t row;
   std::size_t col;
@@ -28,7 +38,7 @@ enum class token_kind_t : std::ptrdiff_t
   string,
 };
 
-typedef struct
+struct token_t
 {
   token_kind_t kind;
   location_t location;
@@ -39,19 +49,25 @@ typedef struct
     std::size_t index;
     std::ptrdiff_t value_integer;
   };
-} token_t;
+};
 
-typedef struct
+struct lexer_multiline_comment_t
 {
   const char *opening;
   const char *closing;
-} lexer_multiline_comment_t;
+};
 
-typedef struct {
+struct lexer_state_t
+{
+  lexer_state_t() : cur(0), bol(0), row(0)
+  {
+    //
+  }
+
   std::size_t cur;
   std::size_t bol;
   std::size_t row;
-} lexer_state_t;
+};
 
 const char *token_kind_name(token_kind_t k)
 {
@@ -157,7 +173,7 @@ class lexer
 
   location_t get_location() const
   {
-    return { _filename, _state.row + 1, _state.cur - _state.bol + 1 };
+    return location_t(_filename, _state.row + 1, _state.cur - _state.bol + 1);
   }
 
   bool is_symbol_start(const char c)
