@@ -27,10 +27,10 @@ struct location_t
   std::size_t col;
 };
 
-enum class token_kind_t : std::ptrdiff_t
+enum class token_kind_t
 {
-  invalid = -1,
-  end,
+  invalid,
+  eof,
   integer,
   symbol,
   keyword,
@@ -51,15 +51,15 @@ struct token_t
   };
 };
 
-struct lexer_multiline_comment_t
+struct multiline_comment_t
 {
   const char *opening;
   const char *closing;
 };
 
-struct lexer_state_t
+struct state_t
 {
-  lexer_state_t() : cur(0), bol(0), row(0)
+  state_t() : cur(0), bol(0), row(0)
   {
     //
   }
@@ -69,7 +69,7 @@ struct lexer_state_t
   std::size_t row;
 };
 
-const char *token_kind_name(token_kind_t k)
+const char *token_kind_name(token_kind_t k) // Replace this with flexer::decode_token or similar
 {
   switch (k)
   {
@@ -78,7 +78,7 @@ const char *token_kind_name(token_kind_t k)
       return "invalid";
     }
 
-    case token_kind_t::end:
+    case token_kind_t::eof:
     {
       return "end";
     }
@@ -115,16 +115,11 @@ const char *token_kind_name(token_kind_t k)
   }
 }
 
-void diagnostic(location_t location, const char *level, const char *fmt, ...)
-{
-  //
-}
-
-class lexer
+class flexer
 {
   public:
 
-  lexer(const char *content, const char *filename = default_filename) : _content(content), _size(std::strlen(content)), _filename(filename)
+  flexer(const char *content, const char *filename = default_filename) : _content(content), _size(std::strlen(content)), _filename(filename)
   {
     //
   }
@@ -140,7 +135,7 @@ class lexer
     return true;
   }
 
-  bool chop_char()
+  bool chop_character()
   {
     if (_state.cur < _size)
     {
@@ -158,16 +153,16 @@ class lexer
     return false;
   }
 
-  void chop_chars(std::size_t n)
+  void chop_characters(std::size_t n)
   {
-    while (n-- > 0 && chop_char());
+    while (n-- > 0 && chop_character());
   }
 
-  void trim_left_ws()
+  void trim_left()
   {
     while (_state.cur < _size && std::isspace(_content[_state.cur]))
     {
-      chop_char();
+      chop_character();
     }
   }
 
@@ -186,7 +181,7 @@ class lexer
     return std::strchr(_symbol_continuations, c) != nullptr;
   }
 
-  bool starts_with_cstr(const char *prefix)
+  bool starts_with(const char *prefix)
   {
     for (std::size_t i = 0; _state.cur + i < _size && prefix[i] != '\0'; i++)
     {
@@ -199,12 +194,12 @@ class lexer
     return true;
   }
 
-  void drop_until_endline()
+  void drop_until_eol()
   {
     while (_state.cur < _size)
     {
       const char c = _content[_state.cur];
-      chop_char();
+      chop_character();
       
       if (c == '\n')
       {
@@ -215,9 +210,9 @@ class lexer
 
   void chop_until_prefix(const char *prefix)
   {
-    while (_state.cur < _size && !starts_with_cstr(prefix))
+    while (_state.cur < _size && !starts_with(prefix))
     {
-      chop_char();
+      chop_character();
     }
   }
 
@@ -226,14 +221,14 @@ class lexer
     another_trim_round:
     while (_state.cur < _size)
     {
-      trim_left_ws();
+      trim_left();
 
       // Single-line comments
       for (std::size_t i = 0; i < _singleline_comments.size(); i++)
       {
-        if (starts_with_cstr(_singleline_comments[i]))
+        if (starts_with(_singleline_comments[i]))
         {
-          drop_until_endline();
+          drop_until_eol();
           goto another_trim_round;
         }
       }
@@ -243,11 +238,11 @@ class lexer
       {
         const char *opening = _multiline_comments[i].opening;
         const char *closing = _multiline_comments[i].closing;
-        if (starts_with_cstr(opening))
+        if (starts_with(opening))
         {
-          chop_chars(strlen(opening));
+          chop_characters(strlen(opening));
           chop_until_prefix(closing);
-          chop_chars(strlen(closing));
+          chop_characters(strlen(closing));
         
           goto another_trim_round;
         }
@@ -262,20 +257,20 @@ class lexer
   // End
   if (_state.cur >= _size)
   {
-    t.kind = token_kind_t::end;
+    t.kind = token_kind_t::eof;
     return true;
   }
 
   // Punctuations
   for (std::size_t i = 0; i < _punctuations.size(); i++)
   {
-    if (starts_with_cstr(_punctuations[i]))
+    if (starts_with(_punctuations[i]))
     {
         size_t n = std::strlen(_punctuations[i]);
         t.kind = token_kind_t::punctuation;
         t.index = i;
         t.end += n;
-        chop_chars(n);
+        chop_characters(n);
         
         return true;
     }
@@ -289,7 +284,7 @@ class lexer
     {
       t.value_integer = t.value_integer * 10 + _content[_state.cur] - '0';
       t.end += 1;
-      chop_char();
+      chop_character();
     }
 
     return true;
@@ -302,7 +297,7 @@ class lexer
       while (_state.cur < _size && is_symbol_continuation(_content[_state.cur]))
       {
         t.end += 1;
-        chop_char();
+        chop_character();
       }
 
       // Keyword
@@ -321,18 +316,18 @@ class lexer
       return true;
     }
 
-    chop_char();
+    chop_character();
     t.end += 1;
 
     return false;
   }
 
-  lexer_state_t get_state() const
+  state_t get_state() const
   {
     return _state;
   }
 
-  void set_state(const lexer_state_t state)
+  void set_state(const state_t state)
   {
     _state = state;
   }
@@ -377,12 +372,12 @@ class lexer
     _singleline_comments = singleline_comments;
   }
 
-  std::vector<lexer_multiline_comment_t> get_multiline_comments() const
+  std::vector<multiline_comment_t> get_multiline_comments() const
   {
     return _multiline_comments;
   }
 
-  void set_multiline_comments(std::vector<lexer_multiline_comment_t> multiline_comments)
+  void set_multiline_comments(std::vector<multiline_comment_t> multiline_comments)
   {
     _multiline_comments = multiline_comments;
   }
@@ -394,7 +389,7 @@ class lexer
 
   const char *_filename;
 
-  lexer_state_t _state;
+  state_t _state;
 
   const char *_symbol_starts = "_abcdefghijklmnopqrstuvwxyz";
   const char *_symbol_continuations = "_abcdefghijklmnopqrstuvwxyz0123456789";
@@ -403,7 +398,7 @@ class lexer
   std::vector<const char *> _keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
 
   std::vector<const char *> _singleline_comments; // Better name
-  std::vector<lexer_multiline_comment_t> _multiline_comments; // Better name
+  std::vector<multiline_comment_t> _multiline_comments; // Better name
 };
 
 }
