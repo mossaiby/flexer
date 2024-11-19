@@ -362,6 +362,16 @@ class flexer
     _punctuations = punctuations;
   }
 
+  std::vector<const char *> get_keywords() const
+  {
+    return _keywords;
+  }
+
+  void set_keywords(std::vector<const char *> keywords)
+  {
+    _keywords = keywords;
+  }
+
   std::vector<const char *> get_singleline_comments() const
   {
     return _singleline_comments;

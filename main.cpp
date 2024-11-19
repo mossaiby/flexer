@@ -4,12 +4,14 @@
 
 int main()
 {
-  std::vector<const char *> punctuations { "(", ")", "{", "}", ",", ";" };
+  std::vector<const char *> punctuations { "::", ":", "?", "(", ")", "{", "}", ",", ";", "==", ">>", "<<", "||", "=", ">", "<", "|" };
+  std::vector<const char *> keywords { "for", "while", "do", "if", "else", "return", "break", "continue" };
 
-  const char *content = "int test() { return 42; }";
+  const char *content = "int test() { if (x == 5) return 42; else y = 5; }";
   flexer::flexer flexer(content);
 
   flexer.set_punctuations(punctuations);
+  flexer.set_keywords(keywords);
 
   flexer::token_t t;
   do
