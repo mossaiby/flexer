@@ -5,13 +5,32 @@
 int main()
 {
   std::vector<const char *> punctuations { "::", ":", "?", "(", ")", "{", "}", ",", ";", "==", ">>", "<<", "||", "=", ">", "<", "|" };
-  std::vector<const char *> keywords { "for", "while", "do", "if", "else", "return", "break", "continue" };
+  std::vector<const char *> keywords { "for", "while", "do", "if", "else", "return", "break", "continue", "void" };
 
-  const char *content = "int test() { if (x == 5) return 42; else y = 5; }";
+  std::vector<flexer::string_t> strings { { "\"", "\"" }};
+  std::vector<flexer::string_escape_t> string_escapes { { "\\\"", "\"" }, { "\\\n", "\n" } }; // Complete this!
+
+  std::vector<const char *> single_line_comments { "//" };
+  std::vector<flexer::multi_line_comment_t> multi_line_comments { { "/*", "*/" } };
+
+  const char *content = 
+    "int test() { if (x == 5) return /* you know... */ 42; else y = \"5\"; } // Wow! This is nice ;-)\n"
+    "\n"
+    "// Another comment\n"
+    "/*\n"
+    " * multi-line comment!\n"
+    "*/\n"
+    "void f() { return \"test completed!\\n\"; }";
   flexer::flexer flexer(content);
 
   flexer.set_punctuations(punctuations);
   flexer.set_keywords(keywords);
+
+  flexer.set_strings(strings);
+  flexer.set_string_escapes(string_escapes);
+
+  flexer.set_single_line_comments(single_line_comments);
+  flexer.set_multi_line_comments(multi_line_comments);
 
   flexer::token_t t;
   do

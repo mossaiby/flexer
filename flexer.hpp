@@ -51,10 +51,22 @@ struct token_t
   };
 };
 
-struct multiline_comment_t
+struct multi_line_comment_t
 {
   const char *opening;
   const char *closing;
+};
+
+struct string_t
+{
+  const char *opening;
+  const char *closing;
+};
+
+struct string_escape_t
+{
+  const char *escaped;
+  const char *unescaped;
 };
 
 struct state_t
@@ -153,17 +165,57 @@ class flexer
     return false;
   }
 
-  void chop_characters(std::size_t n)
+  bool chop_characters(std::size_t n)
   {
-    while (n-- > 0 && chop_character());
+    while (n-- > 0)
+    {
+      if (!chop_character())
+      {
+        return false;
+      }
+    }
+
+    return true;
   }
 
-  void trim_left()
+  void chop_until_eol()
   {
-    while (_state.cur < _size && std::isspace(_content[_state.cur]))
+    while (_state.cur < _size)
     {
+      const char c = _content[_state.cur];
       chop_character();
+      
+      if (c == '\n')
+      {
+        break;
+      }
     }
+  }
+
+  bool chop_until_prefix(const char *prefix)
+  {
+    while (!starts_with(prefix))
+    {
+      if (!chop_character())
+      {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool trim_left()
+  {
+    while (std::isspace(_content[_state.cur]))
+    {
+      if (!chop_character())
+      {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   location_t get_location() const
@@ -183,9 +235,9 @@ class flexer
 
   bool starts_with(const char *prefix)
   {
-    for (std::size_t i = 0; _state.cur + i < _size && prefix[i] != '\0'; i++)
+    for (std::size_t i = 0; prefix[i] != '\0'; i++)
     {
-      if (_content[_state.cur + i] != prefix[i])
+      if (_content[_state.cur + i] != prefix[i] || _state.cur + i >= _size)
       {
         return false;
       }
@@ -194,50 +246,30 @@ class flexer
     return true;
   }
 
-  void drop_until_eol()
-  {
-    while (_state.cur < _size)
-    {
-      const char c = _content[_state.cur];
-      chop_character();
-      
-      if (c == '\n')
-      {
-        break;
-      }
-    }
-  }
-
-  void chop_until_prefix(const char *prefix)
-  {
-    while (_state.cur < _size && !starts_with(prefix))
-    {
-      chop_character();
-    }
-  }
-
   bool get_token(token_t &t)
   {
     another_trim_round:
+
     while (_state.cur < _size)
     {
       trim_left();
 
       // Single-line comments
-      for (std::size_t i = 0; i < _singleline_comments.size(); i++)
+      for (std::size_t i = 0; i < _single_line_comments.size(); i++)
       {
-        if (starts_with(_singleline_comments[i]))
+        if (starts_with(_single_line_comments[i]))
         {
-          drop_until_eol();
+          chop_until_eol();
           goto another_trim_round;
         }
       }
 
       // Multi-line comments
-      for (std::size_t i = 0; i < _multiline_comments.size(); i++)
+      for (std::size_t i = 0; i < _multi_line_comments.size(); i++)
       {
-        const char *opening = _multiline_comments[i].opening;
-        const char *closing = _multiline_comments[i].closing;
+        const char *opening = _multi_line_comments[i].opening;
+        const char *closing = _multi_line_comments[i].closing;
+
         if (starts_with(opening))
         {
           chop_characters(strlen(opening));
@@ -249,50 +281,50 @@ class flexer
       }
 
       break;
-  }
-
-  t.location = get_location();
-  t.begin = t.end = _content + _state.cur;
-
-  // End
-  if (_state.cur >= _size)
-  {
-    t.kind = token_kind_t::eof;
-    return true;
-  }
-
-  // Punctuations
-  for (std::size_t i = 0; i < _punctuations.size(); i++)
-  {
-    if (starts_with(_punctuations[i]))
-    {
-        size_t n = std::strlen(_punctuations[i]);
-        t.kind = token_kind_t::punctuation;
-        t.index = i;
-        t.end += n;
-        chop_characters(n);
-        
-        return true;
-    }
-  }
-
-  // Integer
-  if (std::isdigit(_content[_state.cur]))
-  {
-    t.kind = token_kind_t::integer;
-    while (_state.cur < _size && std::isdigit(_content[_state.cur]))
-    {
-      t.value_integer = t.value_integer * 10 + _content[_state.cur] - '0';
-      t.end += 1;
-      chop_character();
     }
 
-    return true;
-  }
+    t.location = get_location();
+    t.begin = t.end = _content + _state.cur;
 
-  // Symbol
-  if (is_symbol_start(_content[_state.cur]))
-  {
+    // End
+    if (_state.cur >= _size)
+    {
+      t.kind = token_kind_t::eof;
+      return true;
+    }
+
+    // Punctuations
+    for (std::size_t i = 0; i < _punctuations.size(); i++)
+    {
+      if (starts_with(_punctuations[i]))
+      {
+          size_t n = std::strlen(_punctuations[i]);
+          t.kind = token_kind_t::punctuation;
+          t.index = i;
+          t.end += n;
+          chop_characters(n);
+          
+          return true;
+      }
+    }
+
+    // Integer
+    if (std::isdigit(_content[_state.cur]))
+    {
+      t.kind = token_kind_t::integer;
+      while (_state.cur < _size && std::isdigit(_content[_state.cur]))
+      {
+        t.value_integer = t.value_integer * 10 + _content[_state.cur] - '0';
+        t.end += 1;
+        chop_character();
+      }
+
+      return true;
+    }
+
+    // Symbol
+    if (is_symbol_start(_content[_state.cur]))
+    {
       t.kind = token_kind_t::symbol;
       while (_state.cur < _size && is_symbol_continuation(_content[_state.cur]))
       {
@@ -314,6 +346,33 @@ class flexer
       }
 
       return true;
+    }
+
+    // String
+    for (std::size_t i = 0; i < _strings.size(); i++)
+    {
+      const char *opening = _strings[i].opening;
+      const char *closing = _strings[i].closing;
+
+      if (starts_with(opening))
+      {
+        chop_characters(strlen(opening));
+
+        // TODO: Support escaping!
+
+        if (!chop_until_prefix(closing))
+        {
+          return false;
+        }
+
+        chop_characters(strlen(closing)); // What happens in case of non-terminated strings?!
+      
+        t.kind = token_kind_t::string;
+        t.index = i;
+        t.end = _content + _state.cur;
+
+        return true;
+      }
     }
 
     chop_character();
@@ -372,24 +431,44 @@ class flexer
     _keywords = keywords;
   }
 
-  std::vector<const char *> get_singleline_comments() const
+  std::vector<string_t> get_strings() const
   {
-    return _singleline_comments;
+    return _strings;
   }
 
-  void set_singleline_comments(std::vector<const char *> singleline_comments)
+  void set_strings(std::vector<string_t> strings)
   {
-    _singleline_comments = singleline_comments;
+    _strings = strings;
   }
 
-  std::vector<multiline_comment_t> get_multiline_comments() const
+  std::vector<string_escape_t> get_string_escapes() const
   {
-    return _multiline_comments;
+    return _string_escapes;
   }
 
-  void set_multiline_comments(std::vector<multiline_comment_t> multiline_comments)
+  void set_string_escapes(std::vector<string_escape_t> string_escapes)
   {
-    _multiline_comments = multiline_comments;
+    _string_escapes = string_escapes;
+  }
+
+  std::vector<const char *> get_single_line_comments() const
+  {
+    return _single_line_comments;
+  }
+
+  void set_single_line_comments(std::vector<const char *> single_line_comments)
+  {
+    _single_line_comments = single_line_comments;
+  }
+
+  std::vector<multi_line_comment_t> get_multi_line_comments() const
+  {
+    return _multi_line_comments;
+  }
+
+  void set_multi_line_comments(std::vector<multi_line_comment_t> multi_line_comments)
+  {
+    _multi_line_comments = multi_line_comments;
   }
 
   private:
@@ -407,8 +486,11 @@ class flexer
   std::vector<const char *> _punctuations; // If one of the punctuations is a prefix of another one, the longer one should come first.
   std::vector<const char *> _keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
 
-  std::vector<const char *> _singleline_comments; // Better name
-  std::vector<multiline_comment_t> _multiline_comments; // Better name
+  std::vector<string_t> _strings; // Better name
+  std::vector<string_escape_t> _string_escapes; // Better name
+
+  std::vector<const char *> _single_line_comments; // Better name
+  std::vector<multi_line_comment_t> _multi_line_comments; // Better name
 };
 
 }
