@@ -7,7 +7,7 @@ int main()
   std::vector<const char *> punctuations { "::", ":", "?", "(", ")", "{", "}", ",", ";", "==", ">>", "<<", "||", "=", ">", "<", "|" };
   std::vector<const char *> keywords { "for", "while", "do", "if", "else", "return", "break", "continue", "void" };
 
-  std::vector<flexer::string_t> strings { { "\"", "\"" }};
+  std::vector<flexer::string_t> strings { { "\"", "\"" }, { "'", "'" } };
   std::vector<flexer::string_escape_t> string_escapes { { "\\\"", "\"" }, { "\\\n", "\n" } }; // Complete this!
 
   std::vector<const char *> single_line_comments { "//" };
@@ -20,7 +20,7 @@ int main()
     "/*\n"
     " * multi-line comment!\n"
     "*/\n"
-    "void f() { return \"test completed!\\n\"; }";
+    "void f() { return x == 0 ? 'a' : \"test completed!\\n\"; }";
   flexer::flexer flexer(content);
 
   flexer.set_punctuations(punctuations);

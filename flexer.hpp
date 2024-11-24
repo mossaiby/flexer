@@ -178,24 +178,41 @@ class flexer
     return true;
   }
 
-  void chop_until_eol()
+  bool chop_until_eol()
   {
-    while (_state.cur < _size)
+    while (_content[_state.cur] != '\n')
     {
-      const char c = _content[_state.cur];
-      chop_character();
-      
-      if (c == '\n')
+      if (!chop_character())
       {
-        break;
+        return false;
       }
     }
+
+    return true;
   }
 
   bool chop_until_prefix(const char *prefix)
   {
     while (!starts_with(prefix))
     {
+      if (!chop_character())
+      {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool chop_until_prefix_eol(const char *prefix)
+  {
+    while (!starts_with(prefix))
+    {
+      if (_content[_state.cur] == '\n')
+      {
+        return false;
+      }
+
       if (!chop_character())
       {
         return false;
@@ -360,7 +377,7 @@ class flexer
 
         // TODO: Support escaping!
 
-        if (!chop_until_prefix(closing))
+        if (!chop_until_prefix_eol(closing))
         {
           return false;
         }
