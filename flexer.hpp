@@ -142,7 +142,7 @@ class token_t
     {
       case token_kind_t::invalid:
       {
-        return "invalid";
+        return std::format("invalid `{}`", std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) });
       }
 
       case token_kind_t::eof:

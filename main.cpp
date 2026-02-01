@@ -14,7 +14,7 @@ int main()
   std::vector<flexer::multi_line_comment_t> multi_line_comments { { "/*", "*/" } };
 
   const char *content = 
-    "int test() { if (x == 5) return /* you know... */ 42; else y = \"5\"; } // Wow! This is nice ;-)\n"
+    "int @test() { if (x == 5) return /* you know... */ 42; else y = \"5\"; } // Wow! This is nice ;-)\n"
     "\n"
     "// Another comment\n"
     "/*\n"
@@ -36,14 +36,7 @@ int main()
   {
     flexer::token_t t;
 
-    if (!flexer.get_token(t))
-    {
-      std::cout << "Invalid character: '";
-      std::cout.write(t.get_begin(), static_cast<std::size_t>(t.get_end() - t.get_begin()));
-      std::cout << "' at " << t.get_location().filename() << ":" << t.get_location().row() << ":" << t.get_location().col() << "\n";
-
-      break;
-    }
+    flexer.get_token(t);
 
     std::cout << t.to_string() << " at " << t.get_location().to_string() << "\n";
 
