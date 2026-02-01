@@ -32,22 +32,26 @@ int main()
   flexer.set_single_line_comments(single_line_comments);
   flexer.set_multi_line_comments(multi_line_comments);
 
-  flexer::token_t t;
-  do
+  while (true)
   {
+    flexer::token_t t;
+
     if (!flexer.get_token(t))
     {
       std::cout << "Invalid character: '";
-      std::cout.write(t.begin, static_cast<std::size_t>(t.end - t.begin));
-      std::cout << "' at " << t.location.filename << ":" << t.location.row << ":" << t.location.col << "\n";
+      std::cout.write(t.get_begin(), static_cast<std::size_t>(t.get_end() - t.get_begin()));
+      std::cout << "' at " << t.get_location().filename() << ":" << t.get_location().row() << ":" << t.get_location().col() << "\n";
 
       break;
     }
 
-    std::cout << flexer::token_kind_name(t.kind) << ": '";
-    std::cout.write(t.begin, static_cast<std::size_t>(t.end - t.begin));
-    std::cout << "' at " << t.location.filename << ":" << t.location.row << ":" << t.location.col << "\n";
-  } while (t.kind != flexer::token_kind_t::eof);
+    std::cout << t.to_string() << " at " << t.get_location().to_string() << "\n";
+
+    if (t.get_kind() == flexer::token_kind_t::eof)
+    {
+      break;
+    }
+  }
 
   return 0;
 }

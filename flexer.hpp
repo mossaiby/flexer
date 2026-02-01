@@ -1,30 +1,59 @@
+#pragma once
+
 #include <cstddef>
 #include <cstdint>
 #include <cctype>
 #include <cstring>
 #include <vector>
 #include <utility>
+#include <format>
+#include <string>
+#include <string_view>
 
 namespace flexer
 {
 
-constexpr const char *default_filename = "<input stream>"; // Any better idea?
+constexpr const char *default_filename = "<input>";
 
-struct location_t
+class location_t
 {
-  location_t() : filename(nullptr), row(0), col(0)
+  public:
+
+  location_t() : _filename(nullptr), _row(0), _col(0)
   {
-    //
+    // nothing to do here!
   }
 
-  location_t(const char *filename, std::size_t row, std::size_t col) : filename(filename), row(row), col(col)
+  location_t(const char *filename, std::size_t row, std::size_t col) : _filename(filename), _row(row), _col(col)
   {
-    //
+    // nothing to do here!
   }
 
-  const char *filename;
-  std::size_t row;
-  std::size_t col;
+  const char *filename() const noexcept
+  {
+    return _filename;
+  }
+
+  std::size_t row() const noexcept
+  {
+    return _row;
+  }
+
+  std::size_t col() const noexcept
+  {
+    return _col;
+  }
+
+  std::string to_string() const
+  {
+    return std::format("{}:{}:{}", _filename, _row, _col);
+  }
+
+  private:
+
+  const char *_filename;
+  std::size_t _row;
+  std::size_t _col;
 };
 
 enum class token_kind_t
@@ -38,17 +67,129 @@ enum class token_kind_t
   string,
 };
 
-struct token_t
+class token_t
 {
-  token_kind_t kind;
-  location_t location;
-  const char *begin;
-  const char *end;
-  union
+  public:
+
+  token_t() : _kind(token_kind_t::invalid), _location(), _begin(nullptr), _end(nullptr), _index(0), _value_integer(0)
   {
-    std::size_t index;
-    std::ptrdiff_t value_integer;
-  };
+    // nothing to do here!
+  }
+
+  void set_kind(const token_kind_t kind)
+  {
+    _kind = kind;
+  }
+
+  token_kind_t get_kind() const noexcept
+  {
+    return _kind;
+  }
+
+  void set_location(const location_t &location) noexcept
+  {
+    _location = location;
+  }
+
+  location_t get_location() const noexcept
+  {
+    return _location;
+  }
+
+  void set_begin(const char *begin) noexcept
+  {
+    _begin = begin;
+  }
+
+  const char *get_begin() const noexcept
+  {
+    return _begin;
+  }
+
+  void set_end(const char *end) noexcept
+  {
+    _end = end;
+  }
+
+  const char *get_end() const noexcept
+  {
+    return _end;
+  }
+
+  void set_index(const std::size_t index) noexcept
+  {
+    _index = index;
+  }
+
+  std::size_t get_index() const noexcept
+  {
+    return _index;
+  }
+
+  void set_value_integer(const std::ptrdiff_t value_integer) noexcept
+  {
+    _value_integer = value_integer;
+  }
+
+  std::ptrdiff_t get_value_integer() const noexcept
+  {
+    return _value_integer;
+  }
+
+  std::string to_string() const
+  {
+    switch (_kind)
+    {
+      case token_kind_t::invalid:
+      {
+        return "invalid";
+      }
+
+      case token_kind_t::eof:
+      {
+        return "eof";
+      }
+
+      case token_kind_t::integer:
+      {
+        return std::format("integer `{}`", _value_integer);
+      }
+
+      case token_kind_t::symbol:
+      {
+        return std::format("symbol `{}`", std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) });
+      }
+
+      case token_kind_t::keyword:
+      {
+        return std::format("keyword({}) `{}`", _index, std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) });
+      }
+
+      case token_kind_t::punctuation:
+      {
+        return std::format("punctuation({}) `{}`", _index, std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) });
+      }
+
+      case token_kind_t::string:
+      {
+        return std::format("string({}) `{}`", _index, std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) });
+      }
+
+      default:
+      {
+        std::unreachable();
+      }
+    }
+  }
+
+  private:
+
+  token_kind_t _kind;
+  location_t _location;
+  const char *_begin;
+  const char *_end;
+  std::size_t _index;
+  std::ptrdiff_t _value_integer;
 };
 
 struct multi_line_comment_t
@@ -69,11 +210,11 @@ struct string_escape_t
   const char *unescaped;
 };
 
-struct state_t
+struct state_t // TODO: convert to class with proper encapsulation
 {
   state_t() : cur(0), bol(0), row(0)
   {
-    //
+    // nothing to do here!
   }
 
   std::size_t cur;
@@ -81,59 +222,13 @@ struct state_t
   std::size_t row;
 };
 
-const char *token_kind_name(token_kind_t k) // Replace this with flexer::decode_token or similar
-{
-  switch (k)
-  {
-    case token_kind_t::invalid:
-    {
-      return "invalid";
-    }
-
-    case token_kind_t::eof:
-    {
-      return "end";
-    }
-
-    case token_kind_t::integer:
-    {
-      return "integer";
-    }
-
-    case token_kind_t::symbol:
-    {
-      return "symbol";
-    }
-
-    case token_kind_t::keyword:
-    {
-      return "keyword";
-    }
-
-    case token_kind_t::punctuation:
-    {
-      return "punctuation";
-    }
-
-    case token_kind_t::string:
-    {
-      return "string";
-    }
-
-    default:
-    {
-      std::unreachable();
-    }
-  }
-}
-
 class flexer
 {
   public:
 
   flexer(const char *content, const char *filename = default_filename) : _content(content), _size(std::strlen(content)), _filename(filename)
   {
-    //
+    // nothing to do here!
   }
 
   bool get_current_char(char &c)
@@ -180,7 +275,7 @@ class flexer
 
   bool chop_until_eol()
   {
-    while (_content[_state.cur] != '\n')
+    while (_state.cur < _size && _content[_state.cur] != '\n')
     {
       if (!chop_character())
       {
@@ -208,7 +303,7 @@ class flexer
   {
     while (!starts_with(prefix))
     {
-      if (_content[_state.cur] == '\n')
+      if (_state.cur >= _size || _content[_state.cur] == '\n')
       {
         return false;
       }
@@ -224,7 +319,7 @@ class flexer
 
   bool trim_left()
   {
-    while (std::isspace(_content[_state.cur]))
+    while (_state.cur < _size && std::isspace(_content[_state.cur]))
     {
       if (!chop_character())
       {
@@ -271,7 +366,7 @@ class flexer
     {
       trim_left();
 
-      // Single-line comments
+      // single-line comments
       for (std::size_t i = 0; i < _single_line_comments.size(); i++)
       {
         if (starts_with(_single_line_comments[i]))
@@ -281,7 +376,7 @@ class flexer
         }
       }
 
-      // Multi-line comments
+      // multi-line comments
       for (std::size_t i = 0; i < _multi_line_comments.size(); i++)
       {
         const char *opening = _multi_line_comments[i].opening;
@@ -300,63 +395,64 @@ class flexer
       break;
     }
 
-    t.location = get_location();
-    t.begin = t.end = _content + _state.cur;
+    t.set_location(get_location());
+    t.set_begin(_content + _state.cur);
+    t.set_end(_content + _state.cur);
 
-    // End
+    // eof
     if (_state.cur >= _size)
     {
-      t.kind = token_kind_t::eof;
+      t.set_kind(token_kind_t::eof);
       return true;
     }
 
-    // Punctuations
+    // punctuations
     for (std::size_t i = 0; i < _punctuations.size(); i++)
     {
       if (starts_with(_punctuations[i]))
       {
           size_t n = std::strlen(_punctuations[i]);
-          t.kind = token_kind_t::punctuation;
-          t.index = i;
-          t.end += n;
+          t.set_kind(token_kind_t::punctuation);
+          t.set_index(i);
+          t.set_end(t.get_end() + n);
           chop_characters(n);
           
           return true;
       }
     }
 
-    // Integer
+    // integer
     if (std::isdigit(_content[_state.cur]))
     {
-      t.kind = token_kind_t::integer;
+      t.set_kind(token_kind_t::integer);
       while (_state.cur < _size && std::isdigit(_content[_state.cur]))
       {
-        t.value_integer = t.value_integer * 10 + _content[_state.cur] - '0';
-        t.end += 1;
+        t.set_value_integer(t.get_value_integer() * 10 + _content[_state.cur] - '0');
+        t.set_end(t.get_end() + 1);
         chop_character();
       }
 
       return true;
     }
 
-    // Symbol
+    // symbol
     if (is_symbol_start(_content[_state.cur]))
     {
-      t.kind = token_kind_t::symbol;
+      t.set_kind(token_kind_t::symbol);
       while (_state.cur < _size && is_symbol_continuation(_content[_state.cur]))
       {
-        t.end += 1;
+        t.set_end(t.get_end() + 1);
         chop_character();
       }
 
-      // Keyword
+      // keyword
       for (std::size_t i = 0; i < _keywords.size(); i++)
       {
         size_t n = std::strlen(_keywords[i]);
-        if (n == static_cast<std::size_t>(t.end - t.begin) && std::memcmp(_keywords[i], t.begin, n) == 0)
+        if (n == static_cast<std::size_t>(t.get_end() - t.get_begin()) && std::memcmp(_keywords[i], t.get_begin(), n) == 0)
         {
-          t.kind = token_kind_t::keyword;
-          t.index = i;
+          t.set_kind(token_kind_t::keyword);
+          t.set_index(i);
 
           break;
         }
@@ -365,7 +461,7 @@ class flexer
       return true;
     }
 
-    // String
+    // string
     for (std::size_t i = 0; i < _strings.size(); i++)
     {
       const char *opening = _strings[i].opening;
@@ -384,16 +480,16 @@ class flexer
 
         chop_characters(strlen(closing)); // What happens in case of non-terminated strings?!
       
-        t.kind = token_kind_t::string;
-        t.index = i;
-        t.end = _content + _state.cur;
+        t.set_kind(token_kind_t::string);
+        t.set_index(i);
+        t.set_end(_content + _state.cur);
 
         return true;
       }
     }
 
     chop_character();
-    t.end += 1;
+    t.set_end(t.get_end() + 1);
 
     return false;
   }
@@ -428,62 +524,62 @@ class flexer
     _symbol_continuations = symbol_continuations;
   }
 
-  std::vector<const char *> get_punctuations() const
+  const std::vector<const char *> get_punctuations() const
   {
     return _punctuations;
   }
 
-  void set_punctuations(std::vector<const char *> punctuations)
+  void set_punctuations(std::vector<const char *> &punctuations)
   {
     _punctuations = punctuations;
   }
 
-  std::vector<const char *> get_keywords() const
+  const std::vector<const char *> get_keywords() const
   {
     return _keywords;
   }
 
-  void set_keywords(std::vector<const char *> keywords)
+  void set_keywords(std::vector<const char *> &keywords)
   {
     _keywords = keywords;
   }
 
-  std::vector<string_t> get_strings() const
+  const std::vector<string_t> get_strings() const
   {
     return _strings;
   }
 
-  void set_strings(std::vector<string_t> strings)
+  void set_strings(std::vector<string_t> &strings)
   {
     _strings = strings;
   }
 
-  std::vector<string_escape_t> get_string_escapes() const
+  const std::vector<string_escape_t> get_string_escapes() const
   {
     return _string_escapes;
   }
 
-  void set_string_escapes(std::vector<string_escape_t> string_escapes)
+  void set_string_escapes(std::vector<string_escape_t> &string_escapes)
   {
     _string_escapes = string_escapes;
   }
 
-  std::vector<const char *> get_single_line_comments() const
+  const std::vector<const char *> get_single_line_comments() const
   {
     return _single_line_comments;
   }
 
-  void set_single_line_comments(std::vector<const char *> single_line_comments)
+  void set_single_line_comments(std::vector<const char *> &single_line_comments)
   {
     _single_line_comments = single_line_comments;
   }
 
-  std::vector<multi_line_comment_t> get_multi_line_comments() const
+  const std::vector<multi_line_comment_t> get_multi_line_comments() const
   {
     return _multi_line_comments;
   }
 
-  void set_multi_line_comments(std::vector<multi_line_comment_t> multi_line_comments)
+  void set_multi_line_comments(std::vector<multi_line_comment_t> &multi_line_comments)
   {
     _multi_line_comments = multi_line_comments;
   }
@@ -497,8 +593,8 @@ class flexer
 
   state_t _state;
 
-  const char *_symbol_starts = "_abcdefghijklmnopqrstuvwxyz";
-  const char *_symbol_continuations = "_abcdefghijklmnopqrstuvwxyz0123456789";
+  const char *_symbol_starts = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const char *_symbol_continuations = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
   std::vector<const char *> _punctuations; // If one of the punctuations is a prefix of another one, the longer one should come first.
   std::vector<const char *> _keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
