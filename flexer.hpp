@@ -192,6 +192,18 @@ class token_t
   std::ptrdiff_t _value_integer;
 };
 
+struct state_t // TODO: convert to class with proper encapsulation
+{
+  state_t() : cur(0), bol(0), row(0)
+  {
+    // nothing to do here!
+  }
+
+  std::size_t cur;
+  std::size_t bol;
+  std::size_t row;
+};
+
 struct multi_line_comment_t
 {
   const char *opening;
@@ -210,23 +222,156 @@ struct string_escape_t
   const char *unescaped;
 };
 
-struct state_t // TODO: convert to class with proper encapsulation
+struct config_t
 {
-  state_t() : cur(0), bol(0), row(0)
+  public:
+
+  config_t()
   {
-    // nothing to do here!
+    configure_as_ansi_c();
+  }
+  
+  void configure_as_ansi_c()
+  {
+    _symbol_starts = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+    _symbol_continuations = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789";
+
+    _keywords.insert(_keywords.end(), { "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return", "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while" });
+    _punctuations.insert(_punctuations.end(), { "(", ")", "[", "]", "{", "}", "...", "*=", "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "->", "++", "--", "&", "*", "+", "-", "~", "!", "/", "%", "<<", ">>", "<", ">", "<=", ">=", "==", "!=", "^", "|", "&&", "||", "?", ":", ";", ".", "=", "," });
+    
+    _string_delimiters.insert(_string_delimiters.end(), { { "\"", "\"" }, { "\'", "\'" } });
+    _string_escapes.insert(_string_escapes.end(), { { "\\\"", "\"" }, { "\\\'", "\'" }, { "\\\\", "\\" }, { "\\a", "\a" }, { "\\b", "\b" }, { "\\f", "\f" }, { "\\n", "\n" }, { "\\r", "\r" }, { "\\t", "\t" }, { "\\v", "\v" } });
+    
+    _single_line_comments.insert(_single_line_comments.end(), { "//" });
+    _multi_line_comments.insert(_multi_line_comments.end(), { { "/*", "*/" } });
   }
 
-  std::size_t cur;
-  std::size_t bol;
-  std::size_t row;
+  void configure_as_c99()
+  {
+    configure_as_ansi_c();
+    _keywords.insert(_keywords.end(), { "inline", "restrict", "_Bool", "_Complex", "_Imaginary" });
+  }
+
+  void configure_as_c11()
+  {
+    configure_as_c99();
+    _keywords.insert(_keywords.end(), { "_Alignas", "_Alignof", "_Atomic", "_Generic", "_Noreturn", "_Static_assert", "_Thread_local" });
+  }
+
+  void configure_as_c23()
+  {
+    configure_as_c11();
+    _keywords.insert(_keywords.end(), { "alignas", "alignof", "bool", "constexpr", "false", "nullptr", "static_assert", "thread_local", "true", "typeof", "typeof_unqual", "_BitInt", "_Decimal128", "_Decimal32", "_Decimal64" });
+  }
+
+  const char *get_symbol_starts() const
+  {
+    return _symbol_starts;
+  }
+
+  void set_symbol_starts(const char *symbol_starts)
+  {
+    _symbol_starts = symbol_starts;
+  }
+
+  const char *get_symbol_continuations() const
+  {
+    return _symbol_continuations;
+  }
+
+  void set_symbol_continuations(const char *symbol_continuations)
+  {
+    _symbol_continuations = symbol_continuations;
+  }
+
+  const std::vector<const char *> get_punctuations() const
+  {
+    return _punctuations;
+  }
+
+  void set_punctuations(std::vector<const char *> &punctuations)
+  {
+    _punctuations = punctuations;
+  }
+
+  const std::vector<const char *> get_keywords() const
+  {
+    return _keywords;
+  }
+
+  void set_keywords(std::vector<const char *> &keywords)
+  {
+    _keywords = keywords;
+  }
+
+  const std::vector<string_t> get_string_delimiters() const
+  {
+    return _string_delimiters;
+  }
+
+  void set_string_delimiters(std::vector<string_t> &strings)
+  {
+    _string_delimiters = strings;
+  }
+
+  const std::vector<string_escape_t> get_string_escapes() const
+  {
+    return _string_escapes;
+  }
+
+  void set_string_escapes(std::vector<string_escape_t> &string_escapes)
+  {
+    _string_escapes = string_escapes;
+  }
+
+  const std::vector<const char *> get_single_line_comments() const
+  {
+    return _single_line_comments;
+  }
+
+  void set_single_line_comments(std::vector<const char *> &single_line_comments)
+  {
+    _single_line_comments = single_line_comments;
+  }
+
+  const std::vector<multi_line_comment_t> get_multi_line_comments() const
+  {
+    return _multi_line_comments;
+  }
+
+  void set_multi_line_comments(std::vector<multi_line_comment_t> &multi_line_comments)
+  {
+    _multi_line_comments = multi_line_comments;
+  }
+
+  // private: // TODO: make these private
+
+  std::vector<const char *> _keywords; // if one of the keywords is a prefix of another one, the longer one should come first.
+  std::vector<const char *> _punctuations; // if one of the punctuations is a prefix of another one, the longer one should come first.
+
+  const char *_symbol_starts;
+  const char *_symbol_continuations;
+
+  std::vector<string_t> _string_delimiters; // better naming
+  std::vector<string_escape_t> _string_escapes; // better naming
+
+  std::vector<const char *> _single_line_comments; // better naming
+  std::vector<multi_line_comment_t> _multi_line_comments; // better naming
 };
 
 class flexer
 {
   public:
 
-  flexer(const char *content, const char *filename = default_filename) : _content(content), _size(std::strlen(content)), _filename(filename)
+  flexer(config_t &config, const char *content, const char *filename = default_filename) : _content(content), _size(std::strlen(content)), _filename(filename), 
+  _symbol_starts(config._symbol_starts),
+  _symbol_continuations(config._symbol_continuations),
+  _punctuations(config._punctuations),
+  _keywords(config._keywords),
+  _string_delimiters(config._string_delimiters),
+  _string_escapes(config._string_escapes),
+  _single_line_comments(config._single_line_comments),
+  _multi_line_comments(config._multi_line_comments)
   {
     // nothing to do here!
   }
@@ -462,16 +607,16 @@ class flexer
     }
 
     // string
-    for (std::size_t i = 0; i < _strings.size(); i++)
+    for (std::size_t i = 0; i < _string_delimiters.size(); i++)
     {
-      const char *opening = _strings[i].opening;
-      const char *closing = _strings[i].closing;
+      const char *opening = _string_delimiters[i].opening;
+      const char *closing = _string_delimiters[i].closing;
 
       if (starts_with(opening))
       {
         chop_characters(strlen(opening));
 
-        // TODO: Support escaping!
+        // TODO: support string escaping!
 
         if (!chop_until_prefix_eol(closing))
         {
@@ -504,86 +649,6 @@ class flexer
     _state = state;
   }
 
-  const char *get_symbol_starts() const
-  {
-    return _symbol_starts;
-  }
-
-  void set_symbol_starts(const char *symbol_starts)
-  {
-    _symbol_starts = symbol_starts;
-  }
-
-  const char *get_symbol_continuations() const
-  {
-    return _symbol_continuations;
-  }
-
-  void set_symbol_continuations(const char *symbol_continuations)
-  {
-    _symbol_continuations = symbol_continuations;
-  }
-
-  const std::vector<const char *> get_punctuations() const
-  {
-    return _punctuations;
-  }
-
-  void set_punctuations(std::vector<const char *> &punctuations)
-  {
-    _punctuations = punctuations;
-  }
-
-  const std::vector<const char *> get_keywords() const
-  {
-    return _keywords;
-  }
-
-  void set_keywords(std::vector<const char *> &keywords)
-  {
-    _keywords = keywords;
-  }
-
-  const std::vector<string_t> get_strings() const
-  {
-    return _strings;
-  }
-
-  void set_strings(std::vector<string_t> &strings)
-  {
-    _strings = strings;
-  }
-
-  const std::vector<string_escape_t> get_string_escapes() const
-  {
-    return _string_escapes;
-  }
-
-  void set_string_escapes(std::vector<string_escape_t> &string_escapes)
-  {
-    _string_escapes = string_escapes;
-  }
-
-  const std::vector<const char *> get_single_line_comments() const
-  {
-    return _single_line_comments;
-  }
-
-  void set_single_line_comments(std::vector<const char *> &single_line_comments)
-  {
-    _single_line_comments = single_line_comments;
-  }
-
-  const std::vector<multi_line_comment_t> get_multi_line_comments() const
-  {
-    return _multi_line_comments;
-  }
-
-  void set_multi_line_comments(std::vector<multi_line_comment_t> &multi_line_comments)
-  {
-    _multi_line_comments = multi_line_comments;
-  }
-
   private:
 
   const char *_content;
@@ -593,17 +658,17 @@ class flexer
 
   state_t _state;
 
-  const char *_symbol_starts = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const char *_symbol_continuations = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const char *_symbol_starts;
+  const char *_symbol_continuations;
 
-  std::vector<const char *> _punctuations; // If one of the punctuations is a prefix of another one, the longer one should come first.
-  std::vector<const char *> _keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
+  std::vector<const char *> &_punctuations; // If one of the punctuations is a prefix of another one, the longer one should come first.
+  std::vector<const char *> &_keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
 
-  std::vector<string_t> _strings; // Better name
-  std::vector<string_escape_t> _string_escapes; // Better name
+  std::vector<string_t> &_string_delimiters; // Better name
+  std::vector<string_escape_t> &_string_escapes; // Better name
 
-  std::vector<const char *> _single_line_comments; // Better name
-  std::vector<multi_line_comment_t> _multi_line_comments; // Better name
+  std::vector<const char *> &_single_line_comments; // Better name
+  std::vector<multi_line_comment_t> &_multi_line_comments; // Better name
 };
 
 }
