@@ -13,7 +13,7 @@ enum Color {
     BLUE = 10     /* jump in enum values */
 };
 
-/* Simple 2D vector */
+/* Testing multiple comments *//* Simple 2D vector */
 struct Vec2 {
     double x; /* x-coordinate */
     double y; /* y-coordinate */

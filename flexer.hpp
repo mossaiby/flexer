@@ -488,11 +488,11 @@ class flexer
 
   bool get_token(token_t &t)
   {
-    another_trim_round:
-
     while (_state.cur < _size)
     {
       trim_left();
+
+      bool removed_comment = false;
 
       // comments
       for (std::size_t i = 0; i < _comment_delimiters.size(); i++)
@@ -505,12 +505,16 @@ class flexer
           chop_characters(strlen(opening));
           chop_until_prefix(closing);
           chop_characters(strlen(closing));
-        
-          goto another_trim_round;
+
+          removed_comment = true;
+          break; // restart trim
         }
       }
 
-      break;
+      if (!removed_comment)
+      {
+        break;
+      }
     }
 
     t.set_location(get_location());
@@ -534,7 +538,7 @@ class flexer
         t.set_index(i);
         t.set_end(t.get_end() + n);
         chop_characters(n);
-        
+    
         return true;
       }
     }
@@ -549,7 +553,7 @@ class flexer
         t.set_end(t.get_end() + 1);
         chop_character();
       }
-
+    
       return true;
     }
 
@@ -571,11 +575,10 @@ class flexer
         {
           t.set_kind(token_kind_t::keyword);
           t.set_index(i);
-
           break;
         }
       }
-
+      
       return true;
     }
 
@@ -590,14 +593,13 @@ class flexer
         chop_characters(strlen(opening));
 
         // TODO: support string escaping!
-
         if (!chop_until_prefix_eol(closing))
         {
           return false;
         }
 
-        chop_characters(strlen(closing)); // What happens in case of non-terminated strings?!
-      
+        chop_characters(strlen(closing)); // TODO: What happens in case of non-terminated strings?!
+
         t.set_kind(token_kind_t::string);
         t.set_index(i);
         t.set_end(_content + _state.cur);
@@ -608,7 +610,7 @@ class flexer
 
     chop_character();
     t.set_end(t.get_end() + 1);
-
+    
     return false;
   }
 
