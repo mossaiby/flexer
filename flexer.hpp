@@ -234,7 +234,7 @@ struct config_t
     _symbol_continuations = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789";
 
     _keywords.insert(_keywords.end(), { "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return", "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while" });
-    _punctuations.insert(_punctuations.end(), { "(", ")", "[", "]", "{", "}", "...", "*=", "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "->", "++", "--", "&", "*", "+", "-", "~", "!", "/", "%", "<<", ">>", "<", ">", "<=", ">=", "==", "!=", "^", "|", "&&", "||", "?", ":", ";", ".", "=", "," });
+    _punctuations.insert(_punctuations.end(), { "(", ")", "[", "]", "{", "}", "...", "*=", "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "->", "++", "--", "&", "*", "+", "-", "~", "!", "/", "%", "<<", ">>", "<=", ">=", "<", ">", "==", "!=", "^", "|", "&&", "||", "?", ":", ";", ".", "=", "," });
     
     _string_delimiters.insert(_string_delimiters.end(), { { "\"", "\"" }, { "\'", "\'" } });
     _string_escape_sequences.insert(_string_escape_sequences.end(), { { "\\\"", "\"" }, { "\\\'", "\'" }, { "\\\\", "\\" }, { "\\a", "\a" }, { "\\b", "\b" }, { "\\f", "\f" }, { "\\n", "\n" }, { "\\r", "\r" }, { "\\t", "\t" }, { "\\v", "\v" } });
