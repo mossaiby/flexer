@@ -7,6 +7,18 @@
 typedef int i32;          // 32-bit integer alias
 typedef unsigned long usize; /* platform-sized unsigned */
 
+// String escaping
+const char *s1 = "\\";
+const char *s2 = "\"";
+const char *s3 = "\n";
+const char *s4 = "\r";
+const char *s5 = "\t";
+const char *s6 = "\b";
+const char *s7 = "\f";
+const char *s8 = "\a";
+const char *s9 = "\v";
+const char *s10 = "This is a\ntest!";
+
 enum Color {
     RED = 1,      // explicit value
     GREEN,        // implicit increment

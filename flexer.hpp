@@ -126,14 +126,14 @@ class token_t
     return _index;
   }
 
-  void set_value_integer(const std::ptrdiff_t value_integer) noexcept
-  {
-    _value_integer = value_integer;
-  }
-
-  std::ptrdiff_t get_value_integer() const noexcept
+  std::ptrdiff_t &value_integer() noexcept
   {
     return _value_integer;
+  }
+
+  std::string &value_string() noexcept
+  {
+    return _value_string;
   }
 
   std::string to_string() const
@@ -152,7 +152,7 @@ class token_t
 
       case token_kind_t::integer:
       {
-        return std::format("integer `{}`", _value_integer);
+        return std::format("integer `{}` -> `{}`", std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) }, _value_integer);
       }
 
       case token_kind_t::symbol:
@@ -172,7 +172,7 @@ class token_t
 
       case token_kind_t::string:
       {
-        return std::format("string({}) `{}`", _index, std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) });
+        return std::format("string({}) `{}` -> `{}`", _index, std::string_view{ _begin, static_cast<std::size_t>(_end - _begin) }, _value_string);
       }
 
       default:
@@ -189,7 +189,9 @@ class token_t
   const char *_begin;
   const char *_end;
   std::size_t _index;
+
   std::ptrdiff_t _value_integer;
+  std::string _value_string;
 };
 
 struct state_t // TODO: convert to class with proper encapsulation
@@ -549,7 +551,9 @@ class flexer
       t.set_kind(token_kind_t::integer);
       while (_state.cur < _size && std::isdigit(_content[_state.cur]))
       {
-        t.set_value_integer(t.get_value_integer() * 10 + _content[_state.cur] - '0');
+        t.value_integer() *= 10;
+        t.value_integer() += _content[_state.cur] - '0';
+
         t.set_end(t.get_end() + 1);
         chop_character();
       }
@@ -592,13 +596,38 @@ class flexer
       {
         chop_characters(strlen(opening));
 
-        // TODO: support string escaping!
-        if (!chop_until_prefix_eol(closing))
+        do
         {
-          return false;
-        }
+          bool escape_sequence_encountered = false;
 
-        chop_characters(strlen(closing)); // TODO: What happens in case of non-terminated strings?!
+          // string escaping
+          for (std::size_t j = 0; j < _string_escape_sequences.size(); j++)
+          {
+            const char *escaped = _string_escape_sequences[j].escaped;
+            const char *unescaped = _string_escape_sequences[j].unescaped;
+
+            if (starts_with(escaped))
+            {
+              escape_sequence_encountered = true;
+              chop_characters(strlen(escaped));
+              t.value_string() += unescaped;
+
+              break;            
+            }
+          }
+
+          if (!escape_sequence_encountered)
+          {
+            if (!chop_character())
+            {
+              return false;
+            }
+
+            t.value_string() += _content[_state.cur - 1];
+          }
+        } while (!starts_with(closing));
+
+        chop_characters(strlen(closing));
 
         t.set_kind(token_kind_t::string);
         t.set_index(i);
