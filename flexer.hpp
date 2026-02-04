@@ -204,19 +204,19 @@ struct state_t // TODO: convert to class with proper encapsulation
   std::size_t row;
 };
 
-struct multi_line_comment_t
+struct _comment_delimiter_t
 {
   const char *opening;
   const char *closing;
 };
 
-struct string_t
+struct string_delimiter_t
 {
   const char *opening;
   const char *closing;
 };
 
-struct string_escape_t
+struct string_escape_sequence_t
 {
   const char *escaped;
   const char *unescaped;
@@ -237,10 +237,9 @@ struct config_t
     _punctuations.insert(_punctuations.end(), { "(", ")", "[", "]", "{", "}", "...", "*=", "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "^=", "|=", "->", "++", "--", "&", "*", "+", "-", "~", "!", "/", "%", "<<", ">>", "<", ">", "<=", ">=", "==", "!=", "^", "|", "&&", "||", "?", ":", ";", ".", "=", "," });
     
     _string_delimiters.insert(_string_delimiters.end(), { { "\"", "\"" }, { "\'", "\'" } });
-    _string_escapes.insert(_string_escapes.end(), { { "\\\"", "\"" }, { "\\\'", "\'" }, { "\\\\", "\\" }, { "\\a", "\a" }, { "\\b", "\b" }, { "\\f", "\f" }, { "\\n", "\n" }, { "\\r", "\r" }, { "\\t", "\t" }, { "\\v", "\v" } });
+    _string_escape_sequences.insert(_string_escape_sequences.end(), { { "\\\"", "\"" }, { "\\\'", "\'" }, { "\\\\", "\\" }, { "\\a", "\a" }, { "\\b", "\b" }, { "\\f", "\f" }, { "\\n", "\n" }, { "\\r", "\r" }, { "\\t", "\t" }, { "\\v", "\v" } });
     
-    _single_line_comments.insert(_single_line_comments.end(), { "//" });
-    _multi_line_comments.insert(_multi_line_comments.end(), { { "/*", "*/" } });
+    _comment_delimiters.insert(_comment_delimiters.end(), { { "/*", "*/" }, { "//", "\n" } });
   }
 
   void configure_as_c99()
@@ -301,44 +300,34 @@ struct config_t
     _keywords = keywords;
   }
 
-  const std::vector<string_t> get_string_delimiters() const
+  const std::vector<string_delimiter_t> get_string_delimiters() const
   {
     return _string_delimiters;
   }
 
-  void set_string_delimiters(std::vector<string_t> &strings)
+  void set_string_delimiters(std::vector<string_delimiter_t> &strings)
   {
     _string_delimiters = strings;
   }
 
-  const std::vector<string_escape_t> get_string_escapes() const
+  const std::vector<string_escape_sequence_t> get_string_escape_sequences() const
   {
-    return _string_escapes;
+    return _string_escape_sequences;
   }
 
-  void set_string_escapes(std::vector<string_escape_t> &string_escapes)
+  void set_string_escape_sequences(std::vector<string_escape_sequence_t> &string_escape_sequences)
   {
-    _string_escapes = string_escapes;
+    _string_escape_sequences = string_escape_sequences;
   }
 
-  const std::vector<const char *> get_single_line_comments() const
+  const std::vector<_comment_delimiter_t> get_comment_delimiters() const
   {
-    return _single_line_comments;
+    return _comment_delimiters;
   }
 
-  void set_single_line_comments(std::vector<const char *> &single_line_comments)
+  void set_comment_delimiters(std::vector<_comment_delimiter_t> &comment_delimiters)
   {
-    _single_line_comments = single_line_comments;
-  }
-
-  const std::vector<multi_line_comment_t> get_multi_line_comments() const
-  {
-    return _multi_line_comments;
-  }
-
-  void set_multi_line_comments(std::vector<multi_line_comment_t> &multi_line_comments)
-  {
-    _multi_line_comments = multi_line_comments;
+    _comment_delimiters = comment_delimiters;
   }
 
   // private: // TODO: make these private
@@ -349,11 +338,9 @@ struct config_t
   const char *_symbol_starts;
   const char *_symbol_continuations;
 
-  std::vector<string_t> _string_delimiters; // better naming
-  std::vector<string_escape_t> _string_escapes; // better naming
-
-  std::vector<const char *> _single_line_comments; // better naming
-  std::vector<multi_line_comment_t> _multi_line_comments; // better naming
+  std::vector<string_delimiter_t> _string_delimiters; // better naming
+  std::vector<string_escape_sequence_t> _string_escape_sequences; // better naming
+  std::vector<_comment_delimiter_t> _comment_delimiters; // better naming
 };
 
 class flexer
@@ -366,9 +353,8 @@ class flexer
   _punctuations(config._punctuations),
   _keywords(config._keywords),
   _string_delimiters(config._string_delimiters),
-  _string_escapes(config._string_escapes),
-  _single_line_comments(config._single_line_comments),
-  _multi_line_comments(config._multi_line_comments)
+  _string_escape_sequences(config._string_escape_sequences),
+  _comment_delimiters(config._comment_delimiters)
   {
     // nothing to do here!
   }
@@ -508,21 +494,11 @@ class flexer
     {
       trim_left();
 
-      // single-line comments
-      for (std::size_t i = 0; i < _single_line_comments.size(); i++)
+      // comments
+      for (std::size_t i = 0; i < _comment_delimiters.size(); i++)
       {
-        if (starts_with(_single_line_comments[i]))
-        {
-          chop_until_eol();
-          goto another_trim_round;
-        }
-      }
-
-      // multi-line comments
-      for (std::size_t i = 0; i < _multi_line_comments.size(); i++)
-      {
-        const char *opening = _multi_line_comments[i].opening;
-        const char *closing = _multi_line_comments[i].closing;
+        const char *opening = _comment_delimiters[i].opening;
+        const char *closing = _comment_delimiters[i].closing;
 
         if (starts_with(opening))
         {
@@ -553,13 +529,13 @@ class flexer
     {
       if (starts_with(_punctuations[i]))
       {
-          size_t n = std::strlen(_punctuations[i]);
-          t.set_kind(token_kind_t::punctuation);
-          t.set_index(i);
-          t.set_end(t.get_end() + n);
-          chop_characters(n);
-          
-          return true;
+        size_t n = std::strlen(_punctuations[i]);
+        t.set_kind(token_kind_t::punctuation);
+        t.set_index(i);
+        t.set_end(t.get_end() + n);
+        chop_characters(n);
+        
+        return true;
       }
     }
 
@@ -661,11 +637,9 @@ class flexer
   std::vector<const char *> &_punctuations; // If one of the punctuations is a prefix of another one, the longer one should come first.
   std::vector<const char *> &_keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
 
-  std::vector<string_t> &_string_delimiters; // Better name
-  std::vector<string_escape_t> &_string_escapes; // Better name
-
-  std::vector<const char *> &_single_line_comments; // Better name
-  std::vector<multi_line_comment_t> &_multi_line_comments; // Better name
+  std::vector<string_delimiter_t> &_string_delimiters;
+  std::vector<string_escape_sequence_t> &_string_escape_sequences;
+  std::vector<_comment_delimiter_t> &_comment_delimiters;
 };
 
 }

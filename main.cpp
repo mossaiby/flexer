@@ -1,23 +1,32 @@
 #include <iostream>
+#include <fstream>
 
 #include "flexer.hpp"
 
-int main()
+int main(int argc, const char *argv[])
 {
-  const char *content = 
-    "int test(volatile bool x) { if (x == 5) return /* you know... */ 42; else y = \"5\"; } // Wow! This is nice ;-)\n"
-    "\n"
-    "// Another comment\n"
-    "/*\n"
-    " * multi-line comment!\n"
-    "*/\n"
-    "void f() { return x == 0 ? 'a' : \"test completed!\\n\"; }";
+  if (argc != 2)
+  {
+    std::cout << "usage: " << argv[0] << " <file>\n";
+    return 1;
+  }
 
+  // read the file into `content`
+  const char *filename = argv[1];
+  std::ifstream file(filename);
+  if (!file.is_open())
+  {
+    std::cout << "error reading file: " << filename << "\n";
+    return 1;
+  }
+
+  std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+  file.close();
 
   flexer::config_t config;
   config.configure_as_c23();
   
-  flexer::flexer flexer(config, content);
+  flexer::flexer flexer(config, content.c_str(), filename);
 
   while (true)
   {
@@ -29,7 +38,7 @@ int main()
     if (t.get_kind() == flexer::token_kind_t::invalid)
     {
       std::cout << "*** invalid token detected ***\n";
-      break;
+      return 1;
     }
 
     if (t.get_kind() == flexer::token_kind_t::eof)
