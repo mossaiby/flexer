@@ -226,10 +226,7 @@ struct config_t
 {
   public:
 
-  config_t()
-  {
-    configure_as_ansi_c();
-  }
+  config_t() = default;
   
   void configure_as_ansi_c()
   {
