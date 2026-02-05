@@ -5,7 +5,6 @@
 #include <cctype>
 #include <cstring>
 #include <vector>
-#include <utility>
 #include <format>
 #include <string>
 #include <string_view>
@@ -19,7 +18,7 @@ class location_t
 {
   public:
 
-  location_t() : _filename(nullptr), _row(0), _col(0)
+  location_t() : _filename(default_filename), _row(0), _col(0)
   {
     // nothing to do here!
   }
@@ -138,6 +137,11 @@ class token_t
 
   std::string to_string() const
   {
+    if (!_begin || !_end)
+    {
+      return "<invalid token>";
+    }
+
     switch (_kind)
     {
       case token_kind_t::invalid:
@@ -177,7 +181,7 @@ class token_t
 
       default:
       {
-        std::unreachable();
+        return "<unknown token>";
       }
     }
   }
@@ -206,10 +210,11 @@ struct state_t // TODO: convert to class with proper encapsulation
   std::size_t row;
 };
 
-struct _comment_delimiter_t
+struct comment_delimiter_t
 {
   const char *opening;
   const char *closing;
+  bool accept_eof_as_closing;
 };
 
 struct string_delimiter_t
@@ -241,7 +246,7 @@ struct config_t
     _string_delimiters.insert(_string_delimiters.end(), { { "\"", "\"" }, { "\'", "\'" } });
     _string_escape_sequences.insert(_string_escape_sequences.end(), { { "\\\"", "\"" }, { "\\\'", "\'" }, { "\\\\", "\\" }, { "\\a", "\a" }, { "\\b", "\b" }, { "\\f", "\f" }, { "\\n", "\n" }, { "\\r", "\r" }, { "\\t", "\t" }, { "\\v", "\v" } });
     
-    _comment_delimiters.insert(_comment_delimiters.end(), { { "/*", "*/" }, { "//", "\n" } });
+    _comment_delimiters.insert(_comment_delimiters.end(), { { "/*", "*/", false }, { "//", "\n", true } });
   }
 
   void configure_as_c99()
@@ -292,7 +297,7 @@ struct config_t
     _punctuations = punctuations;
   }
 
-  const std::vector<const char *> get_keywords() const
+  const std::vector<const char *> &get_keywords() const
   {
     return _keywords;
   }
@@ -302,7 +307,7 @@ struct config_t
     _keywords = keywords;
   }
 
-  const std::vector<string_delimiter_t> get_string_delimiters() const
+  const std::vector<string_delimiter_t> &get_string_delimiters() const
   {
     return _string_delimiters;
   }
@@ -312,7 +317,7 @@ struct config_t
     _string_delimiters = strings;
   }
 
-  const std::vector<string_escape_sequence_t> get_string_escape_sequences() const
+  const std::vector<string_escape_sequence_t> &get_string_escape_sequences() const
   {
     return _string_escape_sequences;
   }
@@ -322,12 +327,12 @@ struct config_t
     _string_escape_sequences = string_escape_sequences;
   }
 
-  const std::vector<_comment_delimiter_t> get_comment_delimiters() const
+  const std::vector<comment_delimiter_t> &get_comment_delimiters() const
   {
     return _comment_delimiters;
   }
 
-  void set_comment_delimiters(std::vector<_comment_delimiter_t> &comment_delimiters)
+  void set_comment_delimiters(std::vector<comment_delimiter_t> &comment_delimiters)
   {
     _comment_delimiters = comment_delimiters;
   }
@@ -340,9 +345,9 @@ struct config_t
   const char *_symbol_starts;
   const char *_symbol_continuations;
 
-  std::vector<string_delimiter_t> _string_delimiters; // better naming
-  std::vector<string_escape_sequence_t> _string_escape_sequences; // better naming
-  std::vector<_comment_delimiter_t> _comment_delimiters; // better naming
+  std::vector<string_delimiter_t> _string_delimiters;
+  std::vector<string_escape_sequence_t> _string_escape_sequences;
+  std::vector<comment_delimiter_t> _comment_delimiters;
 };
 
 class flexer
@@ -361,6 +366,7 @@ class flexer
     // nothing to do here!
   }
 
+  [[nodiscard]]
   bool get_current_char(char &c)
   {
     if (_state.cur >= _size)
@@ -369,6 +375,18 @@ class flexer
     }
 
     c = _content[_state.cur];
+    return true;
+  }
+
+  [[nodiscard]]
+  bool get_next_char(char &c)
+  {
+    if (_state.cur + 1 >= _size)
+    {
+      return false;
+    }
+
+    c = _content[_state.cur + 1];
     return true;
   }
 
@@ -403,7 +421,7 @@ class flexer
     return true;
   }
 
-  bool chop_until_eol()
+  bool chop_until_or_eol()
   {
     while (_state.cur < _size && _content[_state.cur] != '\n')
     {
@@ -416,18 +434,20 @@ class flexer
     return true;
   }
 
-  bool chop_until_prefix(const char *prefix)
+bool chop_until_prefix_or_eof(const char *prefix)
+{
+  while (_state.cur < _size)
   {
-    while (!starts_with(prefix))
+    if (starts_with(prefix))
     {
-      if (!chop_character())
-      {
-        return false;
-      }
+      return true;
     }
 
-    return true;
+    chop_character();
   }
+
+  return false;
+}
 
   bool chop_until_prefix_eol(const char *prefix)
   {
@@ -449,7 +469,7 @@ class flexer
 
   bool trim_left()
   {
-    while (_state.cur < _size && std::isspace(_content[_state.cur]))
+    while (_state.cur < _size && std::isspace(static_cast<unsigned char>(_content[_state.cur])))
     {
       if (!chop_character())
       {
@@ -477,11 +497,16 @@ class flexer
 
   bool starts_with(const char *prefix)
   {
+    if (!*prefix)
+    {
+      return false;
+    }
+
     for (std::size_t i = 0; prefix[i] != '\0'; i++)
     {
-      if (_content[_state.cur + i] != prefix[i] || _state.cur + i >= _size)
+      if (_state.cur + i >= _size || _content[_state.cur + i] != prefix[i])
       {
-        return false;
+          return false;
       }
     }
 
@@ -490,6 +515,8 @@ class flexer
 
   bool get_token(token_t &t)
   {
+    t = token_t{};
+
     while (_state.cur < _size)
     {
       trim_left();
@@ -501,12 +528,32 @@ class flexer
       {
         const char *opening = _comment_delimiters[i].opening;
         const char *closing = _comment_delimiters[i].closing;
+        bool accept_eof_as_closing = _comment_delimiters[i].accept_eof_as_closing;
 
         if (starts_with(opening))
         {
           chop_characters(strlen(opening));
-          chop_until_prefix(closing);
-          chop_characters(strlen(closing));
+          if (!chop_until_prefix_or_eof(closing))
+          {
+            if (accept_eof_as_closing)
+            {
+              if (_state.cur != _state.bol)
+              {
+                _state.row += 1;
+                _state.bol = _state.cur;
+              }
+              removed_comment = true;
+
+              break;
+            }
+
+            return false;
+          }
+
+          if (!accept_eof_as_closing)
+          {
+            chop_characters(strlen(closing));
+          }
 
           removed_comment = true;
           break; // restart trim
@@ -546,10 +593,10 @@ class flexer
     }
 
     // integer
-    if (std::isdigit(_content[_state.cur]))
+    if (std::isdigit(static_cast<unsigned char>(_content[_state.cur])))
     {
       t.set_kind(token_kind_t::integer);
-      while (_state.cur < _size && std::isdigit(_content[_state.cur]))
+      while (_state.cur < _size && std::isdigit(static_cast<unsigned char>(_content[_state.cur])))
       {
         t.value_integer() *= 10;
         t.value_integer() += _content[_state.cur] - '0';
@@ -595,10 +642,21 @@ class flexer
       if (starts_with(opening))
       {
         chop_characters(strlen(opening));
+        t.value_string().reserve(16);
 
         do
         {
+          if (starts_with(closing))
+          {
+            break;
+          }
+
           bool escape_sequence_encountered = false;
+
+          if (_state.cur >= _size)
+          {
+            return false;
+          }
 
           // string escaping
           for (std::size_t j = 0; j < _string_escape_sequences.size(); j++)
@@ -670,7 +728,7 @@ class flexer
 
   std::vector<string_delimiter_t> &_string_delimiters;
   std::vector<string_escape_sequence_t> &_string_escape_sequences;
-  std::vector<_comment_delimiter_t> &_comment_delimiters;
+  std::vector<comment_delimiter_t> &_comment_delimiters;
 };
 
 }

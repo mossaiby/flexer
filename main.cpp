@@ -28,10 +28,10 @@ int main(int argc, const char *argv[])
   
   flexer::flexer flexer(config, content.c_str(), filename);
 
+  flexer::token_t t;
+
   while (true)
   {
-    flexer::token_t t;
-
     flexer.get_token(t);
     std::cout << t.to_string() << " at " << t.get_location().to_string() << "\n";
 
