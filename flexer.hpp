@@ -354,14 +354,17 @@ class flexer
 {
   public:
 
-  flexer(config_t &config, const char *content, const char *filename = default_filename) : _content(content), _size(std::strlen(content)), _filename(filename), 
-  _symbol_starts(config._symbol_starts),
-  _symbol_continuations(config._symbol_continuations),
-  _punctuations(config._punctuations),
-  _keywords(config._keywords),
-  _string_delimiters(config._string_delimiters),
-  _string_escape_sequences(config._string_escape_sequences),
-  _comment_delimiters(config._comment_delimiters)
+  flexer(config_t &config, const char *content, const char *filename = default_filename) : 
+    _content(content),
+    _size(std::strlen(content)),
+    _filename(filename), 
+    _symbol_starts(config._symbol_starts),
+    _symbol_continuations(config._symbol_continuations),
+    _punctuations(config._punctuations),
+    _keywords(config._keywords),
+    _string_delimiters(config._string_delimiters),
+    _string_escape_sequences(config._string_escape_sequences),
+    _comment_delimiters(config._comment_delimiters)
   {
     // nothing to do here!
   }
