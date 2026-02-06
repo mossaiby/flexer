@@ -287,7 +287,7 @@ struct config_t
     _symbol_continuations = symbol_continuations;
   }
 
-  const std::vector<const char *> get_punctuations() const
+  const std::vector<const char *> &get_punctuations() const
   {
     return _punctuations;
   }
@@ -337,7 +337,7 @@ struct config_t
     _comment_delimiters = comment_delimiters;
   }
 
-  // private: // TODO: make these private
+  private:
 
   std::vector<const char *> _keywords; // if one of the keywords is a prefix of another one, the longer one should come first.
   std::vector<const char *> _punctuations; // if one of the punctuations is a prefix of another one, the longer one should come first.
@@ -354,17 +354,17 @@ class flexer
 {
   public:
 
-  flexer(config_t &config, const char *content, const char *filename = default_filename) : 
+  flexer(const config_t &config, const char *content, const char *filename = default_filename) : 
     _content(content),
     _size(std::strlen(content)),
     _filename(filename), 
-    _symbol_starts(config._symbol_starts),
-    _symbol_continuations(config._symbol_continuations),
-    _punctuations(config._punctuations),
-    _keywords(config._keywords),
-    _string_delimiters(config._string_delimiters),
-    _string_escape_sequences(config._string_escape_sequences),
-    _comment_delimiters(config._comment_delimiters)
+    _symbol_starts(config.get_symbol_starts()),
+    _symbol_continuations(config.get_symbol_continuations()),
+    _punctuations(config.get_punctuations()),
+    _keywords(config.get_keywords()),
+    _string_delimiters(config.get_string_delimiters()),
+    _string_escape_sequences(config.get_string_escape_sequences()),
+    _comment_delimiters(config.get_comment_delimiters())
   {
     // nothing to do here!
   }
@@ -470,17 +470,15 @@ bool chop_until_prefix_or_eof(const char *prefix)
     return true;
   }
 
-  bool trim_left()
+  void trim_left()
   {
     while (_state.cur < _size && std::isspace(static_cast<unsigned char>(_content[_state.cur])))
     {
       if (!chop_character())
       {
-        return false;
+        return;
       }
     }
-
-    return true;
   }
 
   location_t get_location() const
@@ -726,12 +724,12 @@ bool chop_until_prefix_or_eof(const char *prefix)
   const char *_symbol_starts;
   const char *_symbol_continuations;
 
-  std::vector<const char *> &_punctuations; // If one of the punctuations is a prefix of another one, the longer one should come first.
-  std::vector<const char *> &_keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
+  const std::vector<const char *> _punctuations; // If one of the punctuations is a prefix of another one, the longer one should come first.
+  const std::vector<const char *> _keywords; // If one of the keywords is a prefix of another one, the longer one should come first.
 
-  std::vector<string_delimiter_t> &_string_delimiters;
-  std::vector<string_escape_sequence_t> &_string_escape_sequences;
-  std::vector<comment_delimiter_t> &_comment_delimiters;
+  const std::vector<string_delimiter_t> _string_delimiters;
+  const std::vector<string_escape_sequence_t> _string_escape_sequences;
+  const std::vector<comment_delimiter_t> _comment_delimiters;
 };
 
 }
